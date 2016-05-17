@@ -6,11 +6,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include "util.h"
 
-/* define maximal string and reply length, this is just an example.*/
-/* MAX_RES_LEN should be defined larger (e.g. 4096) in real testing. */
 #define MAX_STR_LEN 4096
 #define MAX_RES_LEN 4096
+
+/* Function prototypes */
+void parse_URI( char*, char*, int*, char* );
+void perform_http( int, char* );
+int open_connection( char* , int );
 
 /* --------- Main() routine ------------
  * three main task will be excuted:
@@ -20,7 +25,7 @@
  * don't forget to handle errors
  */
 
-int main( int argc, char *argv )
+int main( int argc, char** argv )
 {
     char uri[ MAX_STR_LEN ];
     char hostname[ MAX_STR_LEN ];
