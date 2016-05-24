@@ -6,10 +6,10 @@ all: SimpServer SimpClient
 clean:
 	rm -f SimpServer SimpClient *.o
 
-SimpServer : SimpServer.o
+SimpServer : SimpServer.o util.o
 	$(CC) $(CFLAGS) -o $@ $^ -lnsl
 
-SimpClient : SimpClient.o
+SimpClient : SimpClient.o util.o
 	$(CC) $(CFLAGS) -o $@ $^ -lnsl
 
 .PHONY : all clean

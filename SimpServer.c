@@ -6,43 +6,74 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include "util.h"
+#include <netdb.h>
+#include <netinet/in.h>
+#include <string.h>
 
-#define MAX_STR_LEN 120         /* maximum string length */
-#define SERVER_PORT_ID 9898     /* server port number */
+#define PORT_NUM 5001
 
-/* Function prototypes */
-void cleanExit();
-void perform_http( int );
+int main( int argc, char *argv[] ) {
 
-/*---------------------main() routine--------------------------*
- * tasks for main
- * generate socket and get socket id,
- * max number of connection is 3 (maximum length the queue of pending connections may grow to)
- * Accept request from client and generate new socket
- * Communicate with client and close new socket after done
- */
+    int sockfd, newsockfd, portno, clilen;
+    char buffer[256];
+    struct sockaddr_in serv_addr, cli_addr;
+    int n;
 
-int main( int argc, char** argv ) {
-    int newsockid; /* return value of the accept() call */
+    /* First call to socket() function */
+    sockfd = socket( AF_INET, SOCK_STREAM, 0 );
 
-    while (1) {
-        close(newsockid);
+    if( sockfd < 0 ) {
+        perror( "ERROR opening socket" );
+        exit( 1 );
     }
+
+    /* Initialize socket structure */
+    bzero( ( char * ) &serv_addr, sizeof( serv_addr ) );
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons( PORT_NUM );
+
+    /* Now bind the host address using bind() call.*/
+    if ( bind( sockfd, (struct sockaddr *) &serv_addr, sizeof( serv_addr ) ) < 0 ) {
+        perror( "ERROR on binding" );
+        exit( 1 );
+    }
+
+    /* Now start listening for the clients, here process will
+     * go in sleep mode and will wait for the incoming connection
+     */
+
+    listen( sockfd, 5 );
+    clilen = sizeof( cli_addr );
+
+    /* Accept actual connection from the client */
+    newsockfd = accept( sockfd, ( struct sockaddr * ) &cli_addr, &clilen );
+
+    if ( newsockfd < 0 ) {
+        perror( "ERROR on accept" );
+        exit( 1 );
+    }
+
+    /* If connection is established then start communicating */
+    bzero( buffer,256 );
+    n = read( newsockfd, buffer, 255 );
+
+    if ( n < 0 ) {
+        perror( "ERROR reading from socket" );
+        exit( 1 );
+    }
+
+    printf( "Here is the message: %s\n", buffer );
+
+    /* Write a response to the client */
+    n = write( newsockfd, "I got your message", 18);
+
+    if ( n < 0 ) {
+        perror( "ERROR writing to socket" );
+        exit( 1 );
+    }
+
     return 0;
 }
 
-/*
- * cleans up opened sockets when killed by a signal.
- */
-void cleanExit() {
-    exit( 0 );
-}
-
-/*
- * Accepts a request from "sockid" and sends a response to "sockid".
- */
-void perform_http( int sockid ) {
-
-}

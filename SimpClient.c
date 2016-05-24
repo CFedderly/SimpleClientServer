@@ -4,18 +4,7 @@
  * CSC 361 Summer 2016
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include "util.h"
-
-#define MAX_STR_LEN 4096
-#define MAX_RES_LEN 4096
-
-/* Function prototypes */
-void parse_URI( char*, char*, int*, char* );
-void perform_http( int, char* );
-int open_connection( char* , int );
+#include "SimpClient.h"
 
 /* --------- Main() routine ------------
  * three main task will be excuted:
@@ -25,24 +14,44 @@ int open_connection( char* , int );
  * don't forget to handle errors
  */
 
-int main( int argc, char** argv )
-{
-    char uri[ MAX_STR_LEN ];
-    char hostname[ MAX_STR_LEN ];
-    char identifier[ MAX_STR_LEN ];
-    int sockid, port;
+int main( int argc, char** argv ) {
 
-    parse_URI( uri, hostname, &port, identifier );
-    sockid = open_connection( hostname, port );
-    perform_http( sockid, identifier );
+    struct parsed_URI* parsed_uri; 
+    int sockid;
+    
+    // Make sure URI is supplied
+    if( argc != 2 ) {
+        printf( "Usage: ./SimpClient <Uniform Resource Identifier> \n" );
+        exit( 1 );
+    }
+    
+    char* raw_uri = argv[1];
+    printf( "%s\n", raw_uri );
 
+    parsed_uri = parse_URI( raw_uri );
+    sockid = open_connection( parsed_uri->hostname, parsed_uri->port );
+    perform_http( sockid, parsed_uri->identifier );
+
+    // Clean up
+    free( parsed_uri );
+    
     return 0;
 }
 
-/* Parse URI into "hostname" and resource "identifier" */
+/* Parse URI into "hostname" and resource "identifier" 
+URI = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+protocol://host[:port]/filepath.
+delimiters = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+*/
 
-void parse_URI( char *uri, char *hostname, int *port, char *identifier ) {
+struct parsed_URI* parse_URI( char* raw_uri ) {
+    char* tok;
+    struct parsed_URI* uri;
+    char delim;
+    
+    uri = mmalloc( sizeof( struct parsed_URI ) );
 
+    return uri;
 }
 
 /*
