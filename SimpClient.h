@@ -8,7 +8,10 @@
 
 #include "util.h"
 
+#define DEFAULT_PORT 80
+
 struct parsed_URI {
+    char* uri;
     char* protocol;
     char* hostname;
     int port;
@@ -16,8 +19,9 @@ struct parsed_URI {
 };
 
 /* Function prototypes */
-struct parsed_URI* parse_URI( char* );
+struct parsed_URI* parse_URI( const char* );
 void perform_http( int, char* );
 int open_connection( char* , int );
+void free_parsed_URI( struct parsed_URI* );
 
 #endif
