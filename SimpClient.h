@@ -24,4 +24,7 @@ void perform_http( int, char* );
 int open_connection( char* , int );
 void free_parsed_URI( struct parsed_URI* );
 
+/* TEST CODE */
+void print_parsed_URI( struct parsed_URI* );
+
 #endif

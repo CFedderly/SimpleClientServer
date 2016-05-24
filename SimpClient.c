@@ -33,6 +33,9 @@ int main( int argc, char** argv ) {
         printf( "Unable to parse uri: %s. Exiting.\n", raw_uri );
         exit( 1 );
     }
+    /* TEST CODE */
+    print_parsed_URI( parsed_uri );
+    
     sockid = open_connection( parsed_uri->hostname, parsed_uri->port );
     perform_http( sockid, parsed_uri->identifier );
 
@@ -51,8 +54,11 @@ delimiters = ":" / "/" / "?" / "#" / "[" / "]" / "@"
 struct parsed_URI* parse_URI( const char* raw_uri ) {
     char* copy_uri;
     char* tok;
+    char* protocol;
     char* port;
     char* hostname;
+    char* identifier;
+    
     size_t port_len;
     int port_num;
     int end_index;
@@ -71,11 +77,12 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
 
     // get the protocol
     tok = strtok( copy_uri, ":" );
-    printf( "%s \n", tok );
-
+    protocol = mmalloc( strlen( tok ) + 1 );
+    strncpy( protocol, tok, strlen( tok ) );
+    uri->protocol = protocol;
+    
     // parse out the hostname
     tok = strtok( NULL, "/" );
-    printf( "%s %zu\n", tok, strlen( tok ) );
     hostname = mmalloc( strlen( tok ) + 1 );
     strncpy( hostname, tok, strlen( tok ) );
     
@@ -86,7 +93,6 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
             memmove( port, port + 1, strlen( port ) );
         }
 
-        printf( "%s %zu\n", port, strlen( port ) );
         port_num = atoi( port );
         port_len = strlen( port ) + 2;
         
@@ -94,7 +100,9 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
             uri->port = port_num;
         } else {
             printf( "Error parsing port num %s. \n", port );
-            goto error_cleanup;
+            free_parsed_URI( uri );
+            free( copy_uri );
+            return NULL;
         }
         
     } else {
@@ -102,24 +110,19 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
         uri->port = DEFAULT_PORT;
     }
 
-    // crop hostname if needed (port num is present )
+    // crop hostname if there is a port number present
     end_index = strlen( hostname) + 1 - port_len;
     hostname[ end_index ] = '\0';
-    printf( "hostname: %s\n", hostname );
+
     uri->hostname = hostname;
 
-    // parse the identifier
-    tok = strtok( NULL, "/" );
-    printf( "%s \n", tok );
+    // parse the identifier (everything that's left)
+    tok = strtok( NULL, "" );
+    identifier = mmalloc( strlen( tok ) + 1 );
+    strncpy( identifier, tok, strlen( tok ) );
+    uri->identifier = identifier;
     
-    goto cleanup;
-    
- // cleanup upon error
- error_cleanup: 
-    free_parsed_URI( uri );
-    uri = NULL;
- // regular cleanup
- cleanup:
+    // Cleanup
     free( copy_uri );
     
     return uri;
@@ -170,4 +173,13 @@ void free_parsed_URI( struct parsed_URI* uri ) {
         printf( "freeing uri_struct \n");
         free( uri );
     }
+}
+
+/* TEST CODE */
+void print_parsed_URI( struct parsed_URI* uri ) {
+    printf( "uri: %s\n", uri->uri );
+    printf( "protocol: %s\n", uri->protocol );
+    printf( "hostname: %s\n", uri->hostname );
+    printf( "port: %d\n", uri->port );
+    printf( "identifier: %s\n", uri->identifier );
 }
