@@ -35,9 +35,6 @@ int main( int argc, char** argv ) {
         exit( 1 );
     }
 
-    /* TEST CODE */
-    print_parsed_URI( parsed_uri );
-
     // Protocol must be http
     char* tolower = strlwr( parsed_uri->protocol );
     if ( strcmp( "http", tolower ) != 0 ) {
@@ -63,6 +60,8 @@ int main( int argc, char** argv ) {
 
     // get the HTTP request string
     request = build_http_request( parsed_uri->uri, parsed_uri->hostname );
+
+    // send the request, wait for a response
     status = perform_http( sockid, request );
     if ( status == -1 ) {
         fprintf( stderr, "Exiting.\n" );
@@ -172,14 +171,49 @@ int perform_http( int sockid, const char* request ) {
 
 void print_request( const char* request ) {
     const char* start = "\n---Request begin---\n";
-    const char* end = "--Request end---\n";
+    const char* end = "---Request end---\n";
     const char* sent = "HTTP Request sent, awaiting response...\n";
 
     printf( "%s%s%s%s", start, request, end, sent );
 }
 
 void print_response( const char* response ) {
-    printf( "%s\n", response );
+    const char* header_start = "\n---Response header---\n";
+    const char* body_start = "---Response body---\n";
+
+    char* copy_response;
+    char* header_end;
+    char* header;
+    char* body;
+    
+    int header_len;
+    int body_len;
+    int delim_len;
+    
+    copy_response = mmalloc( strlen( response ) + 1 );
+    strncpy( copy_response, response, strlen( response ) );
+
+    // split response by the header and body, which are separated by "\r\n\r\n"
+    char* delims = "\r\n\r\n";
+    header_end = strstr( copy_response, delims );
+
+    delim_len = strlen( delims );
+    header_len = header_end - copy_response;
+    body_len = strlen( response ) - header_len - delim_len;
+
+    header = mmalloc( header_len + 1 );
+    strncpy( header, copy_response, header_len );
+    header[ header_len ] = '\0';
+    
+    body = mmalloc( body_len + 1 );
+    strncpy( body, copy_response + header_len + delim_len, body_len );
+    body[ body_len ] = '\0';
+
+    printf( "%s%s%s%s%s \n", header_start, header, delims, body_start, body );
+
+    free( copy_response );
+    free( header );
+    free( body );
 }
 
 /* Parses URI input provided by the user 
@@ -288,26 +322,20 @@ void free_parsed_URI( struct parsed_URI* uri ) {
     if ( uri != NULL ) {
         
         if ( uri->uri != NULL ) {
-            printf( "freeing uri \n");
             free( uri->uri );
         }
         if ( uri->protocol != NULL ) {
-            printf( "freeing proto \n");
             free( uri->protocol );
         }
         if ( uri->hostname != NULL ) {
-            printf( "freeing hostname \n");
             free( uri->hostname );
         }
         if ( uri->port != NULL ) {
-            printf( "freeing port \n" );
             free( uri->port );
         }
         if ( uri->identifier != NULL ) {
-            printf( "freeing id \n");
             free( uri->identifier );
         }
-        printf( "freeing uri_struct \n");
         free( uri );
     }
 }
