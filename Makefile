@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g -Wextra -std=c99
+CFLAGS = -Wall -g -Wextra
 
 all: SimpServer SimpClient
 
@@ -7,9 +7,9 @@ clean:
 	rm -f SimpServer SimpClient *.o
 
 SimpServer : SimpServer.o util.o
-	$(CC) $(CFLAGS) -o $@ $^ -lnsl
+	$(CC) $(CFLAGS) -o $@ $? -lnsl
 
 SimpClient : SimpClient.o util.o
-	$(CC) $(CFLAGS) -o $@ $^ -lnsl
+	$(CC) $(CFLAGS) -o $@ $? -lnsl
 
 .PHONY : all clean

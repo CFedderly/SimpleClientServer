@@ -51,3 +51,15 @@ void* mmalloc(const size_t size) {
     return allocated;
 }
 
+/* Function to change string to lowercase */
+char* strlwr( const char* str ) {
+    int i;
+    int len = strlen( str );
+    char* temp = mmalloc( len + 1 );
+    for ( i = 0; i < len ; i++ ) {
+        temp[ i ] = tolower( str[ i ] );
+    }
+    temp[ len ] = '\0';
+    return temp;
+}
+

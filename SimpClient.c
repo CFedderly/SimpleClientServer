@@ -16,27 +16,49 @@
 
 int main( int argc, char** argv ) {
 
-    struct parsed_URI* parsed_uri; 
+    struct parsed_URI* parsed_uri;
+    struct addrinfo* addr_info;
+    struct sockaddr_in* info;
     int sockid;
+    int status;
     
     // Make sure URI is supplied
     if( argc != 2 ) {
-        printf( "Usage: ./SimpClient <Uniform Resource Identifier> \n" );
+        fprintf( stderr, "Usage: ./SimpClient <Uniform Resource Identifier> \n" );
         exit( 1 );
     }
     
-    char* raw_uri = argv[1];
-    printf( "%s\n", raw_uri );
-
-    parsed_uri = parse_URI( raw_uri );
+    parsed_uri = parse_URI( argv[1] );
     if ( parsed_uri == NULL ) {
-        printf( "Unable to parse uri: %s. Exiting.\n", raw_uri );
+        fprintf( stderr, "Unable to parse uri: %s. Exiting.\n", argv[1] );
         exit( 1 );
     }
+
     /* TEST CODE */
     print_parsed_URI( parsed_uri );
-    
-    sockid = open_connection( parsed_uri->hostname, parsed_uri->port );
+
+    // Protocol must be http
+    char* tolower = strlwr( parsed_uri->protocol );
+    if ( strcmp( "http", tolower ) != 0 ) {
+        fprintf( stderr, "Protocol must be HTTP. Instead, it was %s. Exiting.\n", parsed_uri->protocol );
+        free_parsed_URI( parsed_uri );
+        exit( 1 );
+    }
+
+    // create addrinfo struct
+    status = init_connection( &addr_info, parsed_uri->hostname, parsed_uri->port );
+    if ( status != 0 ) {
+        fprintf( stderr, "Error creating addrinfo struct. Exiting.\n" );
+        free_parsed_URI( parsed_uri );
+        exit( 1 );
+    }
+
+    sockid = open_connection( addr_info );
+    if ( sockid == -1 ) {
+        fprintf( stderr, "Error creating connecting to socket. Exiting.\n" );
+        free_parsed_URI( parsed_uri );
+        exit( 1 );        
+    }
     perform_http( sockid, parsed_uri->identifier );
 
     // Clean up
@@ -45,22 +67,62 @@ int main( int argc, char** argv ) {
     return 0;
 }
 
-/* Parse URI into "hostname" and resource "identifier" 
-URI = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
-protocol://host[:port]/filepath.
-delimiters = ":" / "/" / "?" / "#" / "[" / "]" / "@"
-*/
+int init_connection( struct addrinfo** result, const char* hostname, const char* port ) {
 
+    struct addrinfo init;
+    int status;
+    
+    memset( &init, 0, sizeof( struct addrinfo ) );
+    init.ai_family = AF_INET;
+    init.ai_socktype = SOCK_STREAM;
+    status = getaddrinfo( hostname, port, &init, result );
+
+    return status;
+}
+
+int open_connection( struct addrinfo* info ) {
+
+    int sockfd;
+    int status;
+
+    sockfd = socket( info->ai_family, info->ai_socktype, info->ai_protocol );
+    printf( "%d\n", sockfd );
+    if ( sockfd == -1 ) {
+        return sockfd;
+    }
+
+    status = connect( sockfd, info->ai_addr, info->ai_addrlen );
+    printf( "%d\n", status );
+    if ( status != 0 ) {
+        return -1;
+    }
+    return sockfd;
+}
+
+/*
+ * connect to a HTTP server using hostname and port,
+ * and get the resource specified by identifier
+ */
+void perform_http( int sockid, char *identifier ) {
+    /* connect to server and retrieve response */
+
+    close(sockid);
+}
+
+/* Parses URI input provided by the user 
+ * Assumes input is of the form protocol://host[:port]/filepath.
+ * Returns a parsed_URI struct containing the parsed information
+ */
 struct parsed_URI* parse_URI( const char* raw_uri ) {
     char* copy_uri;
     char* tok;
     char* protocol;
     char* port;
+    char* temp_port;
     char* hostname;
     char* identifier;
     
     size_t port_len;
-    int port_num;
     int end_index;
     struct parsed_URI* uri;
     
@@ -87,17 +149,17 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
     strncpy( hostname, tok, strlen( tok ) );
     
     // parse out the port, if it's present
-    port = strchr( tok, ':' );
-    if ( port != NULL ) {
-        if ( port[0] == ':' ) {
-            memmove( port, port + 1, strlen( port ) );
+    temp_port = strchr( tok, ':' );
+    if ( temp_port != NULL ) {
+        if ( temp_port[0] == ':' ) {
+            memmove( temp_port, temp_port + 1, strlen( temp_port ) );
         }
-
-        port_num = atoi( port );
-        port_len = strlen( port ) + 2;
-        
-        if ( port_num != 0 ) {
-            uri->port = port_num;
+        port_len = strlen( temp_port ) + 2;
+        port = mmalloc( strlen( temp_port ) + 1 );
+        strncpy( port, temp_port, strlen( temp_port ) ); 
+        // check that the port is an integer
+        if ( atoi( port ) != 0 ) {
+            uri->port = port;
         } else {
             printf( "Error parsing port num %s. \n", port );
             free_parsed_URI( uri );
@@ -111,7 +173,7 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
     }
 
     // crop hostname if there is a port number present
-    end_index = strlen( hostname) + 1 - port_len;
+    end_index = strlen( hostname ) + 1 - port_len;
     hostname[ end_index ] = '\0';
 
     uri->hostname = hostname;
@@ -126,29 +188,6 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
     free( copy_uri );
     
     return uri;
-}
-
-/*
- * connect to a HTTP server using hostname and port,
- * and get the resource specified by identifier
- */
-void perform_http( int sockid, char *identifier ) {
-    /* connect to server and retrieve response */
-
-    close(sockid);
-}
-
-/*
- * open_conn() routine. It connects to a remote server on a specified port.
- */
-
-int open_connection( char *hostname, int port ) {
-
-    int sockfd;
-    /* generate socket
-     * connect socket to the host address
-     */
-    return sockfd;
 }
 
 void free_parsed_URI( struct parsed_URI* uri ) {
@@ -180,6 +219,6 @@ void print_parsed_URI( struct parsed_URI* uri ) {
     printf( "uri: %s\n", uri->uri );
     printf( "protocol: %s\n", uri->protocol );
     printf( "hostname: %s\n", uri->hostname );
-    printf( "port: %d\n", uri->port );
+    printf( "port: %s\n", uri->port );
     printf( "identifier: %s\n", uri->identifier );
 }
