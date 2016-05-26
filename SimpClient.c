@@ -19,6 +19,7 @@ int main( int argc, char** argv ) {
     struct parsed_URI* parsed_uri;
     struct addrinfo* addr_info;
     struct sockaddr_in* info;
+    char* request;
     int sockid;
     int status;
     
@@ -59,10 +60,14 @@ int main( int argc, char** argv ) {
         free_parsed_URI( parsed_uri );
         exit( 1 );        
     }
-    perform_http( sockid, parsed_uri->identifier );
 
+    // get the HTTP request string
+    request = build_http_request( parsed_uri->uri, parsed_uri->hostname );
+    perform_http( sockid, parsed_uri->identifier );
+    
     // Clean up
     free_parsed_URI( parsed_uri );
+    free( request );
     
     return 0;
 }
@@ -80,23 +85,52 @@ int init_connection( struct addrinfo** result, const char* hostname, const char*
     return status;
 }
 
-int open_connection( struct addrinfo* info ) {
+int open_connection( const struct addrinfo* info ) {
 
     int sockfd;
     int status;
 
     sockfd = socket( info->ai_family, info->ai_socktype, info->ai_protocol );
-    printf( "%d\n", sockfd );
     if ( sockfd == -1 ) {
         return sockfd;
     }
 
     status = connect( sockfd, info->ai_addr, info->ai_addrlen );
-    printf( "%d\n", status );
     if ( status != 0 ) {
         return -1;
     }
     return sockfd;
+}
+
+char* build_http_request( const char* uri, const char* hostname ) {
+
+    char* request;
+    size_t total_len;
+
+    // string constants
+    const char* get = "GET ";
+    const char* version = " HTTP/1.0\r\n";
+    const char* host = "Host: ";
+    const char* host_end = "\r\n";
+    const char* connection = "Connection: Keep-Alive\r\n\r\n";
+
+    total_len = strlen( get ) + strlen( uri ) + strlen( version )
+        + strlen( host ) + strlen( hostname ) + strlen( host_end )
+        + strlen( connection );
+    request = mmalloc( sizeof( char ) * ( total_len + 1 ) );
+
+    strcat( request, get );
+    strcat( request, uri );
+    strcat( request, version );
+    strcat( request, host );
+    strcat( request, hostname );
+    strcat( request, host_end );
+    strcat( request, connection );
+    request[ total_len ] = '\0';
+    
+    //remember null terminator 
+    printf( "%s\n", request );
+    return request;
 }
 
 /*
