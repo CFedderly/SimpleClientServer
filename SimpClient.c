@@ -18,7 +18,7 @@ int main( int argc, char** argv ) {
 
     struct parsed_URI* parsed_uri;
     struct addrinfo* addr_info;
-    struct sockaddr_in* info;
+    //    struct sockaddr_in* info;
     char* request;
     int sockid;
     int status;
@@ -63,7 +63,10 @@ int main( int argc, char** argv ) {
 
     // get the HTTP request string
     request = build_http_request( parsed_uri->uri, parsed_uri->hostname );
-    perform_http( sockid, parsed_uri->identifier );
+    status = perform_http( sockid, request );
+    if ( status == -1 ) {
+        fprintf( stderr, "Exiting.\n" );
+    }
     
     // Clean up
     free_parsed_URI( parsed_uri );
@@ -128,19 +131,55 @@ char* build_http_request( const char* uri, const char* hostname ) {
     strcat( request, connection );
     request[ total_len ] = '\0';
     
-    //remember null terminator 
-    printf( "%s\n", request );
     return request;
 }
 
 /*
  * connect to a HTTP server using hostname and port,
- * and get the resource specified by identifier
  */
-void perform_http( int sockid, char *identifier ) {
-    /* connect to server and retrieve response */
+int perform_http( int sockid, const char* request ) {
 
-    close(sockid);
+    int bytes;
+    char* response;
+    
+    bytes = send( sockid, request, strlen( request ), 0 );
+
+    print_request( request );
+
+    if ( bytes == -1 ) {
+        fprintf( stderr, "Error sending request." );
+        return bytes;
+    }
+
+    response = mmalloc( sizeof( char ) * BUFFER_SIZE );
+
+    bytes = recv( sockid, response, BUFFER_SIZE - 1, 0 );
+    if ( bytes == -1 ) {
+        fprintf( stderr, "Error receiving response." );
+        free( response );
+        return bytes;
+    }
+
+    response[ bytes ] = '\0';
+    
+    print_response( response );
+
+    free( response );
+    close( sockid );
+
+    return bytes; 
+}
+
+void print_request( const char* request ) {
+    const char* start = "\n---Request begin---\n";
+    const char* end = "--Request end---\n";
+    const char* sent = "HTTP Request sent, awaiting response...\n";
+
+    printf( "%s%s%s%s", start, request, end, sent );
+}
+
+void print_response( const char* response ) {
+    printf( "%s\n", response );
 }
 
 /* Parses URI input provided by the user 
@@ -148,6 +187,10 @@ void perform_http( int sockid, char *identifier ) {
  * Returns a parsed_URI struct containing the parsed information
  */
 struct parsed_URI* parse_URI( const char* raw_uri ) {
+
+    const char* default_port = "80";
+    const char* default_id = "/";
+    
     char* copy_uri;
     char* tok;
     char* protocol;
@@ -185,12 +228,16 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
     // parse out the port, if it's present
     temp_port = strchr( tok, ':' );
     if ( temp_port != NULL ) {
+
+        // get rid of the leading colon
         if ( temp_port[0] == ':' ) {
             memmove( temp_port, temp_port + 1, strlen( temp_port ) );
         }
+
         port_len = strlen( temp_port ) + 2;
         port = mmalloc( strlen( temp_port ) + 1 );
         strncpy( port, temp_port, strlen( temp_port ) ); 
+
         // check that the port is an integer
         if ( atoi( port ) != 0 ) {
             uri->port = port;
@@ -203,7 +250,9 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
         
     } else {
         port_len = 0;
-        uri->port = DEFAULT_PORT;
+        port = mmalloc( strlen( default_port ) + 1 );
+        strncpy( port, default_port, strlen( default_port ) );
+        uri->port = port;
     }
 
     // crop hostname if there is a port number present
@@ -214,10 +263,21 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
 
     // parse the identifier (everything that's left)
     tok = strtok( NULL, "" );
-    identifier = mmalloc( strlen( tok ) + 1 );
-    strncpy( identifier, tok, strlen( tok ) );
-    uri->identifier = identifier;
-    
+    // if there isn't one, set the identifer to a single slash
+    if ( tok == NULL ) {
+        // add a trailing slash to uri if it isn't present
+        if ( uri->uri[ strlen( raw_uri ) - 1 ] != '/' ) { 
+            uri->uri = realloc( uri->uri, strlen( raw_uri ) + 2 );
+            strcat( uri->uri, default_id );
+        }
+        identifier = mmalloc( strlen( default_id ) + 1 );
+        strncpy( identifier, default_id, strlen( default_id ) );
+        uri->identifier = identifier;
+    } else {
+        identifier = mmalloc( strlen( tok ) + 1 );
+        strncpy( identifier, tok, strlen( tok ) );
+        uri->identifier = identifier;
+    }
     // Cleanup
     free( copy_uri );
     
@@ -238,6 +298,10 @@ void free_parsed_URI( struct parsed_URI* uri ) {
         if ( uri->hostname != NULL ) {
             printf( "freeing hostname \n");
             free( uri->hostname );
+        }
+        if ( uri->port != NULL ) {
+            printf( "freeing port \n" );
+            free( uri->port );
         }
         if ( uri->identifier != NULL ) {
             printf( "freeing id \n");

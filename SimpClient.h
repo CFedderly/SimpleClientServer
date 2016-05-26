@@ -11,8 +11,7 @@
 
 #include "util.h"
 
-#define DEFAULT_PORT "80"
-#define MAX_GET_REQUEST_SIZE 2048
+#define BUFFER_SIZE 4096
 
 struct parsed_URI {
     char* uri;
@@ -26,7 +25,9 @@ struct parsed_URI {
 int init_connection( struct addrinfo**, const char*, const char* );
 int open_connection( const struct addrinfo* );
 char* build_http_request( const char*, const char* );
-void perform_http( int, char* );
+int perform_http( int, const char* );
+void print_request( const char* );
+void print_response( const char* );
 struct parsed_URI* parse_URI( const char* );
 void free_parsed_URI( struct parsed_URI* );
 
