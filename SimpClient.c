@@ -55,6 +55,7 @@ int main( int argc, char** argv ) {
     if ( sockid == -1 ) {
         fprintf( stderr, "Error creating connecting to socket. Exiting.\n" );
         free_parsed_URI( parsed_uri );
+        freeaddrinfo( addr_info );
         exit( 1 );        
     }
 
@@ -69,6 +70,7 @@ int main( int argc, char** argv ) {
     
     // Clean up
     free_parsed_URI( parsed_uri );
+    freeaddrinfo( addr_info );
     free( request );
     
     return 0;
