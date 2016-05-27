@@ -193,7 +193,7 @@ void print_response( const char* response ) {
     int delim_len;
     
     copy_response = mmalloc( strlen( response ) + 1 );
-    strncpy( copy_response, response, strlen( response ) );
+    strncpy( copy_response, response, strlen( response ) + 1 );
 
     // split response by the header and body, which are separated by "\r\n\r\n"
     char* delims = "\r\n\r\n";
@@ -204,11 +204,11 @@ void print_response( const char* response ) {
     body_len = strlen( response ) - header_len - delim_len;
 
     header = mmalloc( header_len + 1 );
-    strncpy( header, copy_response, header_len );
+    strncpy( header, copy_response, header_len + 1 );
     header[ header_len ] = '\0';
     
     body = mmalloc( body_len + 1 );
-    strncpy( body, copy_response + header_len + delim_len, body_len );
+    strncpy( body, copy_response + header_len + delim_len, body_len + 1 );
     body[ body_len ] = '\0';
 
     printf( "%s%s%s%s%s \n", header_start, header, delims, body_start, body );
@@ -244,22 +244,22 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
 
     // copy raw URI to store in struct
     uri->uri = mmalloc( strlen( raw_uri ) + 1 );
-    strncpy( uri->uri, raw_uri, strlen( raw_uri ) );
+    strncpy( uri->uri, raw_uri, strlen( raw_uri ) + 1 );
 
     // copy raw URI for parsing
     copy_uri = mmalloc( strlen( raw_uri ) + 1 );
-    strncpy( copy_uri, raw_uri, strlen( raw_uri ) );
+    strncpy( copy_uri, raw_uri, strlen( raw_uri ) + 1 );
 
     // get the protocol
     tok = strtok( copy_uri, ":" );
     protocol = mmalloc( strlen( tok ) + 1 );
-    strncpy( protocol, tok, strlen( tok ) );
+    strncpy( protocol, tok, strlen( tok ) + 1 );
     uri->protocol = protocol;
     
     // parse out the hostname
     tok = strtok( NULL, "/" );
     hostname = mmalloc( strlen( tok ) + 1 );
-    strncpy( hostname, tok, strlen( tok ) );
+    strncpy( hostname, tok, strlen( tok ) + 1 );
     
     // parse out the port, if it's present
     temp_port = strchr( tok, ':' );
@@ -272,7 +272,7 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
 
         port_len = strlen( temp_port ) + 2;
         port = mmalloc( strlen( temp_port ) + 1 );
-        strncpy( port, temp_port, strlen( temp_port ) ); 
+        strncpy( port, temp_port, strlen( temp_port ) + 1 ); 
 
         // check that the port is an integer
         if ( atoi( port ) != 0 ) {
@@ -287,7 +287,7 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
     } else {
         port_len = 0;
         port = mmalloc( strlen( default_port ) + 1 );
-        strncpy( port, default_port, strlen( default_port ) );
+        strncpy( port, default_port, strlen( default_port ) + 1 );
         uri->port = port;
     }
 
@@ -307,11 +307,11 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
             strcat( uri->uri, default_id );
         }
         identifier = mmalloc( strlen( default_id ) + 1 );
-        strncpy( identifier, default_id, strlen( default_id ) );
+        strncpy( identifier, default_id, strlen( default_id ) + 1 );
         uri->identifier = identifier;
     } else {
         identifier = mmalloc( strlen( tok ) + 1 );
-        strncpy( identifier, tok, strlen( tok ) );
+        strncpy( identifier, tok, strlen( tok ) + 1 );
         uri->identifier = identifier;
     }
     // Cleanup
