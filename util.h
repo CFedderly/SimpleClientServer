@@ -9,8 +9,6 @@
 #include <ctype.h>
 
 /* Function prototypes */
-int writen( int, char*, int );
-int readn( int, char*, int );
 void* mmalloc( size_t );
 char* strlwr( const char* );
 

@@ -8,7 +8,6 @@
 
 int main( int argc, char *argv[] ) {
 
-    // int sockfd, newsockfd, clilen;
     char request[ BUFFER_SIZE ];
 
     char* port;
@@ -23,7 +22,8 @@ int main( int argc, char *argv[] ) {
     
     struct sockaddr_in cli_addr;
     struct http_request* req;
-    
+
+    // check for correct arguments
     if ( argc != 3 ) {
         fprintf( stderr, "Usage: ./SimpServer <port_number> <server_directory> \n" );
         exit( 1 );
@@ -70,9 +70,11 @@ int main( int argc, char *argv[] ) {
         fprintf( stderr, "Error listening on socket. Exiting.\n" );
         exit( 1 );
     }
+    
     cli_len = sizeof( cli_addr );
 
     while ( 1 ) {
+
         // accept connection from client
         new_sockfd = accept( sockfd, ( struct sockaddr* ) &cli_addr, &cli_len );
         if ( new_sockfd < 0 ) {
@@ -89,32 +91,32 @@ int main( int argc, char *argv[] ) {
             exit( 1 );
         }
 
-        printf( "Message: %s\n", request );
-        
+        // parse the received HTTP request
         req = parse_request( request );
 
-        print_http_request( req );
-        
         if ( req == NULL ) {
             fprintf( stderr, "Unable to parse request: %s. Exiting.\n", request );
             exit( 1 );            
         }
 
-        //response = build_http_response( req->method, req->identifier );
-        response = "Hello\r\n\r\nHow are you?\n";
+        // respond to the request
+        response = build_http_response( req->method, req->identifier );
         status = write( new_sockfd, response, strlen( response ) );
         if ( status < 0 ) {
             fprintf( stderr, "Error writing to client socket. Exiting.\n" );
+            free_http_request( req );
+            free( response );
             exit( 1 );
         }
         
         free_http_request( req );
-        //free( response );
+        free( response );
     }
     
     return 0;
 }
 
+/* Build the addrinfo struct, initialize and bind to a socket */
 int init_socket( const char* port ) {
 
     struct addrinfo hints;
@@ -143,10 +145,9 @@ int init_socket( const char* port ) {
     return sockfd;
 }
 
+/* Parses the HTTP request and stores relevant info in a struct */
 struct http_request* parse_request( const char* raw_request ) {
     char* copy_request;
-    char* method;
-    char* identifier;
     char* tok;
     char* temp_id;
     char* uri;
@@ -164,12 +165,12 @@ struct http_request* parse_request( const char* raw_request ) {
     copy_request = mmalloc( strlen( raw_request ) + 1 );
     strncpy( copy_request, raw_request, strlen( raw_request ) + 1 );
 
+    // parse the method
     tok = strtok( copy_request, " " );
-    method = mmalloc( strlen( tok ) + 1 );
-    strncpy( method, tok, strlen( tok ) + 1 );
-    
-    req->method = method;
-         
+    req->method = mmalloc( strlen( tok ) + 1 );
+    strncpy( req->method, tok, strlen( tok ) + 1 );
+
+    // parse the identifier
     uri = strtok( NULL, " " );
     temp_id = strchr( uri, '/' );
     temp_id = strchr( temp_id + 1, '/' );
@@ -191,51 +192,124 @@ struct http_request* parse_request( const char* raw_request ) {
     return req;
 }
 
+/* Returns an HTTP response from the given HTTP method and identifier */
 char* build_http_response( const char* method, const char* identifier ) {
     size_t total_len;
     char* response;
+    char* body = NULL;
+    char date_time[ 128 ];
+    char server_name[ 128 ];
     enum status_code status;
+    char* status_string;
+    size_t body_len;
     
     // String constants 
     const char* ok = "HTTP/1.0 200 OK\r\n";
     const char* not_found = "HTTP/1.0 404 Not Found\r\n";
     const char* not_impl = "HTTP/1.0 501 Not Implemented\r\n";
-
-    const char* status_string;
-    char* body;
+    const char* date = "Date: ";
+    const char* server = "Server: ";
+    const char* clrf = "\r\n";
     
     char* method_tmp = strlwr( method );
+    
+    // if the method isn't get, status should be not implemented
     if ( strcmp( "get", method_tmp ) != 0 ) {
         status = NOT_IMPLEMENTED;
     } else {
 
         FILE* file = fopen( identifier, "r" );
 
+        // If we can open the file specified by the identifier,
+        // status should be okay
         if ( file ) {
             status = OK;
+
+            // find length of the file
+            fseek( file, 0, SEEK_END );
+            body_len = ftell( file );
+            rewind( file );
+            
+            // allocate enough memory for response 
+            body = mmalloc( body_len + 1 );
+
+            // read the contents of the file, store as the response body
+            if ( fread( body, sizeof( char ), body_len, file ) != body_len ) {
+                fprintf( stderr, "Error reading file specified by identifer: %s\n.", identifier );
+                free( body );
+                return NULL;
+            }
+
+            body[ body_len ] = '\0';
+
+            fclose( file );
+            
         } else {
+            // if the file can't be opened, status is not found
+            body_len = 0;
             status = NOT_FOUND;
         }
-
     }
 
+    // set the correct status string
     switch( status ) {
     case OK:
-        status_string = ok;
-        break;
-    case NOT_FOUND:
-        status_string = not_found;
+        status_string = mmalloc( strlen( ok ) + 1 );
+        strncpy( status_string, ok, strlen( ok ) + 1 );
         break;
     case NOT_IMPLEMENTED:
-        status_string = not_impl;
+        status_string = mmalloc( strlen( not_impl ) + 1 );
+        strncpy( status_string, not_impl, strlen( not_impl ) + 1 );
+        break;
+    case NOT_FOUND:
+        status_string = mmalloc( strlen( not_found ) + 1 );
+        strncpy( status_string, not_found, strlen( not_found ) + 1 );
         break;
     default:
-        status_string = not_found;
+        status_string = mmalloc( strlen( not_found ) + 1 );
+        strncpy( status_string, not_found, strlen( not_found ) + 1 );
+        break;
     }
 
-    return "";
+    // find the current GMT time
+    time_t t = time( NULL );
+    snprintf( date_time, sizeof( date_time ), "%s", asctime( gmtime( &t ) ) ); 
+
+    // get the server name 
+    gethostname( server_name, sizeof( server_name ) );
+    
+    total_len = strlen( status_string ) +
+        strlen( server ) + strlen( server_name ) + strlen( clrf ) +
+        strlen( date ) + strlen( date_time ) + strlen( clrf ) +
+        strlen( clrf ) + body_len;
+
+    // build the response
+    response = mmalloc( total_len + 1 );
+    response[ 0 ] = '\0';
+    strcat( response, status_string );
+    strcat( response, server );
+    strcat( response, server_name );
+    strcat( response, clrf );
+    strcat( response, date );
+    strcat( response, date_time );
+    strcat( response, clrf );
+    strcat( response, clrf );
+    if ( body != NULL ) {
+        strcat( response, body );
+    }
+    response[ total_len ] = '\0';
+
+    if ( status_string != NULL ) {
+        free( status_string );
+    }
+    if ( body != NULL ) {
+        free( body );
+    }
+    
+    return response;
 }
 
+/* Frees the memory allocated to the http_request struct */
 void free_http_request( struct http_request* req ) {
     if ( req != NULL ) {
         if ( req->request != NULL ) {
@@ -251,6 +325,7 @@ void free_http_request( struct http_request* req ) {
     }
 }
 
+/* TEST CODE */
 void print_http_request( struct http_request* req ) {
     printf( "request: %s\n", req->request );
     printf( "method: %s\n", req->method );

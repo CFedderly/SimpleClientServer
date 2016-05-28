@@ -9,10 +9,11 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <time.h>
 
 #include "util.h"
 
-#define BUFFER_SIZE 2048
+#define BUFFER_SIZE 255
 
 /* Request struct */
 struct http_request {

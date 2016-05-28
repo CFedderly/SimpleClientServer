@@ -6,14 +6,6 @@
 
 #include "SimpClient.h"
 
-/* --------- Main() routine ------------
- * three main task will be excuted:
- * accept the input URI and parse it into fragments for further operation
- * open socket connection with specified sockid ID
- * use the socket id to connect sopecified server
- * don't forget to handle errors
- */
-
 int main( int argc, char** argv ) {
 
     struct parsed_URI* parsed_uri;
@@ -29,6 +21,7 @@ int main( int argc, char** argv ) {
         exit( 1 );
     }
     
+    // parse URI for relevant fields and store it in a struct
     parsed_uri = parse_URI( argv[1] );
     if ( parsed_uri == NULL ) {
         fprintf( stderr, "Unable to parse uri: %s. Exiting.\n", argv[1] );
@@ -59,7 +52,7 @@ int main( int argc, char** argv ) {
         exit( 1 );        
     }
 
-    // get the HTTP request string
+    // build the HTTP request string from the information in the URI
     request = build_http_request( parsed_uri->uri, parsed_uri->hostname );
 
     // send the request, wait for a response
@@ -76,6 +69,7 @@ int main( int argc, char** argv ) {
     return 0;
 }
 
+/* Builds the addrinfo struct for the provided uri */
 int init_connection( struct addrinfo** result, const char* hostname, const char* port ) {
 
     struct addrinfo init;
@@ -89,6 +83,7 @@ int init_connection( struct addrinfo** result, const char* hostname, const char*
     return status;
 }
 
+/* opens a socket and connects to it */
 int open_connection( const struct addrinfo* info ) {
 
     int sockfd;
@@ -106,6 +101,7 @@ int open_connection( const struct addrinfo* info ) {
     return sockfd;
 }
 
+/* Builds the HTTP request to send */
 char* build_http_request( const char* uri, const char* hostname ) {
 
     char* request;
@@ -123,6 +119,7 @@ char* build_http_request( const char* uri, const char* hostname ) {
         + strlen( connection );
     request = mmalloc( sizeof( char ) * ( total_len + 1 ) );
 
+    request[ 0 ] = '\0';
     strcat( request, get );
     strcat( request, uri );
     strcat( request, version );
@@ -135,9 +132,7 @@ char* build_http_request( const char* uri, const char* hostname ) {
     return request;
 }
 
-/*
- * connect to a HTTP server using hostname and port,
- */
+/* Sends the HTTP request over the socket, receives the response */
 int perform_http( int sockid, const char* request ) {
 
     int bytes;
@@ -171,6 +166,7 @@ int perform_http( int sockid, const char* request ) {
     return bytes; 
 }
 
+/* Formats and prints the HTTP request */
 void print_request( const char* request ) {
     const char* start = "\n---Request begin---\n";
     const char* end = "---Request end---\n";
@@ -179,6 +175,7 @@ void print_request( const char* request ) {
     printf( "%s%s%s%s", start, request, end, sent );
 }
 
+/* Formats and prints the HTTP response */
 void print_response( const char* response ) {
     const char* header_start = "\n---Response header---\n";
     const char* body_start = "---Response body---\n";
@@ -285,6 +282,7 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
         }
         
     } else {
+        // if no port is specified, set it to the default port ( 80 )
         port_len = 0;
         port = mmalloc( strlen( default_port ) + 1 );
         strncpy( port, default_port, strlen( default_port ) + 1 );
@@ -320,6 +318,7 @@ struct parsed_URI* parse_URI( const char* raw_uri ) {
     return uri;
 }
 
+/* Free the memory allocated to the parsed_URI struct */
 void free_parsed_URI( struct parsed_URI* uri ) {
     if ( uri != NULL ) {
         
